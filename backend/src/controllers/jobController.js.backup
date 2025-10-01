@@ -1,101 +1,6 @@
 const { validationResult } = require('express-validator');
 const pool = require('../config/database');
 
-// Get all job postings for admin (including inactive)
-const getJobsForAdmin = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 10,
-      search = '',
-      status = ''
-    } = req.query;
-
-    const offset = (page - 1) * limit;
-
-    let query = `
-      SELECT j.*, c.name as company_name, c.logo_url as company_logo
-      FROM job_postings j
-      JOIN companies c ON j.company_id = c.id
-      WHERE 1=1
-    `;
-    const queryParams = [];
-    let paramCount = 0;
-
-    if (search) {
-      paramCount++;
-      query += ` AND (j.title ILIKE $${paramCount} OR j.description ILIKE $${paramCount} OR c.name ILIKE $${paramCount})`;
-      queryParams.push(`%${search}%`);
-    }
-
-    if (status === 'active') {
-      query += ` AND j.is_active = true`;
-    } else if (status === 'inactive') {
-      query += ` AND j.is_active = false`;
-    }
-
-    query += ` ORDER BY j.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
-    queryParams.push(limit, offset);
-
-    const result = await pool.query(query, queryParams);
-
-    // Get total count
-    let countQuery = `
-      SELECT COUNT(*) 
-      FROM job_postings j
-      JOIN companies c ON j.company_id = c.id
-      WHERE 1=1
-    `;
-    const countParams = [];
-    let countParamCount = 0;
-
-    if (search) {
-      countParamCount++;
-      countQuery += ` AND (j.title ILIKE $${countParamCount} OR j.description ILIKE $${countParamCount} OR c.name ILIKE $${countParamCount})`;
-      countParams.push(`%${search}%`);
-    }
-
-    if (status === 'active') {
-      countQuery += ` AND j.is_active = true`;
-    } else if (status === 'inactive') {
-      countQuery += ` AND j.is_active = false`;
-    }
-
-    const countResult = await pool.query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].count);
-
-    res.json({
-      jobs: result.rows.map(job => ({
-        id: job.id,
-        companyId: job.company_id,
-        companyName: job.company_name,
-        companyLogo: job.company_logo,
-        title: job.title,
-        description: job.description,
-        requirements: job.requirements,
-        skillsRequired: job.skills_required,
-        location: job.location,
-        jobType: job.job_type,
-        experienceLevel: job.experience_level,
-        salaryMin: job.salary_min,
-        salaryMax: job.salary_max,
-        currency: job.currency,
-        isActive: job.is_active,
-        createdAt: job.created_at,
-        updatedAt: job.updated_at
-      })),
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total: total
-      }
-    });
-  } catch (error) {
-    console.error('Get jobs for admin error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
 // Create new job posting
 const createJob = async (req, res) => {
   try {
@@ -303,9 +208,10 @@ const getJobs = async (req, res) => {
         createdAt: job.created_at
       })),
       pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total: total
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
@@ -320,7 +226,9 @@ const getJobById = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT j.*, c.name as company_name, c.logo_url as company_logo, c.description as company_description
+      `SELECT j.*, c.name as company_name, c.description as company_description,
+              c.website as company_website, c.logo_url as company_logo,
+              c.industry as company_industry, c.size as company_size
        FROM job_postings j
        JOIN companies c ON j.company_id = c.id
        WHERE j.id = $1 AND j.is_active = true`,
@@ -337,8 +245,11 @@ const getJobById = async (req, res) => {
         id: job.id,
         companyId: job.company_id,
         companyName: job.company_name,
-        companyLogo: job.company_logo,
         companyDescription: job.company_description,
+        companyWebsite: job.company_website,
+        companyLogo: job.company_logo,
+        companyIndustry: job.company_industry,
+        companySize: job.company_size,
         title: job.title,
         description: job.description,
         requirements: job.requirements,
@@ -362,22 +273,22 @@ const getJobById = async (req, res) => {
 const applyToJob = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const { coverLetter } = req.body;
 
-    // Check if job exists and is active
+    // Check if job exists
     const jobResult = await pool.query(
       'SELECT id FROM job_postings WHERE id = $1 AND is_active = true',
       [id]
     );
 
     if (jobResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Job not found or inactive' });
+      return res.status(404).json({ error: 'Job not found' });
     }
 
     // Check if user already applied
     const existingApplication = await pool.query(
-      'SELECT id FROM job_applications WHERE user_id = $1 AND job_id = $2',
-      [userId, id]
+      'SELECT id FROM job_applications WHERE user_id = $1 AND job_posting_id = $2',
+      [req.user.id, id]
     );
 
     if (existingApplication.rows.length > 0) {
@@ -386,11 +297,11 @@ const applyToJob = async (req, res) => {
 
     // Create application
     await pool.query(
-      'INSERT INTO job_applications (user_id, job_id, status) VALUES ($1, $2, $3)',
-      [userId, id, 'pending']
+      'INSERT INTO job_applications (user_id, job_posting_id, cover_letter) VALUES ($1, $2, $3)',
+      [req.user.id, id, coverLetter || '']
     );
 
-    res.json({ message: 'Application submitted successfully' });
+    res.json({ message: 'Application submitted successfully!' });
   } catch (error) {
     console.error('Apply to job error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -487,6 +398,99 @@ const deleteJob = async (req, res) => {
   } catch (error) {
     console.error('Delete job error:', error);
     res.status(500).json({ error: 'Internal server error' });
+
+// Get all job postings for admin (including inactive)
+const getJobsForAdmin = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      status = ''
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT j.*, c.name as company_name, c.logo_url as company_logo
+      FROM job_postings j
+      JOIN companies c ON j.company_id = c.id
+      WHERE 1=1
+    `;
+    const queryParams = [];
+    let paramCount = 0;
+
+    if (search) {
+      paramCount++;
+      query += ` AND (j.title ILIKE $${paramCount} OR j.description ILIKE $${paramCount} OR c.name ILIKE $${paramCount})`;
+      queryParams.push(`%${search}%`);
+    }
+
+    if (status === 'active') {
+      query += ` AND j.is_active = true`;
+    } else if (status === 'inactive') {
+      query += ` AND j.is_active = false`;
+    }
+
+    query += ` ORDER BY j.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+    queryParams.push(limit, offset);
+
+    const result = await pool.query(query, queryParams);
+
+    // Get total count
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM job_postings j
+      JOIN companies c ON j.company_id = c.id
+      WHERE 1=1
+    `;
+    const countParams = [];
+    let countParamCount = 0;
+
+    if (search) {
+      countParamCount++;
+      countQuery += ` AND (j.title ILIKE $${countParamCount} OR j.description ILIKE $${countParamCount} OR c.name ILIKE $${countParamCount})`;
+      countParams.push(`%${search}%`);
+    }
+
+    if (status === 'active') {
+      countQuery += ` AND j.is_active = true`;
+    } else if (status === 'inactive') {
+      countQuery += ` AND j.is_active = false`;
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      jobs: result.rows.map(job => ({
+        id: job.id,
+        companyId: job.company_id,
+        companyName: job.company_name,
+        companyLogo: job.company_logo,
+        title: job.title,
+        description: job.description,
+        requirements: job.requirements,
+        skillsRequired: job.skills_required,
+        location: job.location,
+        jobType: job.job_type,
+        experienceLevel: job.experience_level,
+        salaryMin: job.salary_min,
+        salaryMax: job.salary_max,
+        currency: job.currency,
+        isActive: job.is_active,
+        createdAt: job.created_at,
+        updatedAt: job.updated_at
+      })),
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total: total
+      }
+    });
+  } catch (error) {
+    console.error('Get jobs for admin error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -494,8 +498,9 @@ module.exports = {
   getJobsForAdmin,
   createJob,
   getJobs,
+  getJobsForAdmin,
   getJobById,
-  applyToJob,
   updateJob,
-  deleteJob
+  deleteJob,
+  applyToJob
 };

@@ -5,6 +5,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // Public routes - Anyone can view jobs
 router.get('/', jobController.getJobs);
+router.get('/admin', authenticateToken, requireAdmin, jobController.getJobsForAdmin);
 router.get('/:id', jobController.getJobById);
 
 // Protected routes - Only authenticated users can apply

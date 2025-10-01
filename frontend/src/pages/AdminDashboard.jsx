@@ -1,103 +1,156 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from "react";
+import AdminJobManagement from "./AdminJobManagement";
 
 const AdminDashboard = () => {
-  const [users, setUsers] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [sendingEmail, setSendingEmail] = useState(null)
+  const [activeTab, setActiveTab] = useState("jobs");
 
-  useEffect(() => {
-    fetchUsers()
-  }, [currentPage, searchTerm, roleFilter])
+  const tabs = [
+    { id: "jobs", name: "Job Management", icon: "💼" },
+    { id: "users", name: "User Management", icon: "👥" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-gray-600 mt-1">Manage your job recommendation system</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="-mb-px flex space-x-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <span className="mr-2">{tab.icon}</span>
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto">
+        {activeTab === "jobs" && <AdminJobManagement />}
+        {activeTab === "users" && <UserManagement />}
+      </div>
+    </div>
+  );
+};
+
+// User Management Component (simplified version of the original)
+const UserManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [sendingEmail, setSendingEmail] = useState(null);
+
+  React.useEffect(() => {
+    fetchUsers();
+  }, [currentPage, searchTerm, roleFilter]);
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       const params = new URLSearchParams({
         page: currentPage,
         limit: 10,
         search: searchTerm,
-        role: roleFilter
-      })
+        role: roleFilter,
+      });
 
       const response = await fetch(`/api/users?${params}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setUsers(data.users)
-        setTotalPages(data.pagination.pages)
+        const data = await response.json();
+        setUsers(data.users);
+        setTotalPages(data.pagination.pages);
       } else {
-        setError('Failed to fetch users')
+        setError("Failed to fetch users");
       }
     } catch (err) {
-      setError('Network error')
+      setError("Network error");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSearch = (e) => {
-    setSearchTerm(e.target.value)
-    setCurrentPage(1)
-  }
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
 
   const handleRoleFilter = (e) => {
-    setRoleFilter(e.target.value)
-    setCurrentPage(1)
-  }
+    setRoleFilter(e.target.value);
+    setCurrentPage(1);
+  };
 
   const sendVerificationEmail = async (userId) => {
-    setSendingEmail(userId)
+    setSendingEmail(userId);
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem("token");
       const response = await fetch(`/api/users/${userId}/send-verification`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
-        alert('Verification email sent successfully!')
+        alert("Verification email sent successfully!");
       } else {
-        const data = await response.json()
-        alert(`Failed to send email: ${data.error}`)
+        const data = await response.json();
+        alert(`Failed to send email: ${data.error}`);
       }
     } catch (err) {
-      alert('Network error')
+      alert("Network error");
     } finally {
-      setSendingEmail(null)
+      setSendingEmail(null);
     }
-  }
+  };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString()
-  }
+    return new Date(dateString).toLocaleDateString();
+  };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600 mt-2">Manage users and system settings</p>
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="text-gray-600 mt-2">Manage user accounts and send verification emails</p>
         </div>
 
         {/* Stats Cards */}
@@ -107,7 +160,12 @@ const AdminDashboard = () => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                    />
                   </svg>
                 </div>
                 <div className="ml-5 w-0 flex-1">
@@ -131,9 +189,7 @@ const AdminDashboard = () => {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Verified Users</dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {users.filter(user => user.isVerified).length}
-                    </dd>
+                    <dd className="text-lg font-medium text-gray-900">{users.filter((user) => user.isVerified).length}</dd>
                   </dl>
                 </div>
               </div>
@@ -145,15 +201,18 @@ const AdminDashboard = () => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
                   </svg>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Unverified Users</dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {users.filter(user => !user.isVerified).length}
-                    </dd>
+                    <dd className="text-lg font-medium text-gray-900">{users.filter((user) => !user.isVerified).length}</dd>
                   </dl>
                 </div>
               </div>
@@ -165,16 +224,19 @@ const AdminDashboard = () => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">Admins</dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {users.filter(user => user.role === 'admin').length}
-                    </dd>
+                    <dd className="text-lg font-medium text-gray-900">{users.filter((user) => user.role === "admin").length}</dd>
                   </dl>
                 </div>
               </div>
@@ -186,9 +248,7 @@ const AdminDashboard = () => {
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="px-4 py-5 sm:px-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900">Users Management</h3>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              Manage user accounts and send verification emails
-            </p>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">Manage user accounts and send verification emails</p>
           </div>
 
           {/* Filters */}
@@ -232,7 +292,8 @@ const AdminDashboard = () => {
                     <div className="flex-shrink-0 h-10 w-10">
                       <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                         <span className="text-sm font-medium text-gray-700">
-                          {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                          {user.firstName.charAt(0)}
+                          {user.lastName.charAt(0)}
                         </span>
                       </div>
                     </div>
@@ -242,27 +303,25 @@ const AdminDashboard = () => {
                       </div>
                       <div className="text-sm text-gray-500">{user.email}</div>
                       <div className="flex items-center mt-1">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'admin' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {user.role === 'admin' ? 'Admin' : 'Job Seeker'}
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.role === "admin" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {user.role === "admin" ? "Admin" : "Job Seeker"}
                         </span>
-                        <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.isVerified 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {user.isVerified ? 'Verified' : 'Unverified'}
+                        <span
+                          className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {user.isVerified ? "Verified" : "Unverified"}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <div className="text-sm text-gray-500">
-                      Joined: {formatDate(user.createdAt)}
-                    </div>
+                    <div className="text-sm text-gray-500">Joined: {formatDate(user.createdAt)}</div>
                     {!user.isVerified && (
                       <button
                         onClick={() => sendVerificationEmail(user.id)}
@@ -273,14 +332,23 @@ const AdminDashboard = () => {
                           <>
                             <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
                             </svg>
                             Sending...
                           </>
                         ) : (
                           <>
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                              />
                             </svg>
                             Send Verification
                           </>
@@ -315,8 +383,7 @@ const AdminDashboard = () => {
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700">
-                    Page <span className="font-medium">{currentPage}</span> of{' '}
-                    <span className="font-medium">{totalPages}</span>
+                    Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
                   </p>
                 </div>
                 <div>
@@ -343,7 +410,7 @@ const AdminDashboard = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default AdminDashboard
+export default AdminDashboard;

@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const jobRoutes = require('./routes/jobs');
 const companyRoutes = require('./routes/companies');
+const applicationRoutes = require('./routes/applications');
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); // Changed from /api/user to /api/users
 app.use('/api/jobs', jobRoutes);
 app.use('/api/companies', companyRoutes);
+app.use('/api/applications', applicationRoutes);
 
 // 404 handler
 app.use((req, res) => {
